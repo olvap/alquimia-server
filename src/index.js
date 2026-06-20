@@ -9,7 +9,6 @@ const io = new Server(httpServer, {
     origin: "*",
     methods: ["GET", "POST"]
   }
-
 });
 
 const rooms = new Map();
@@ -31,18 +30,27 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     socket.emit("room-created", roomId);
     io.emit("update-room-list", Array.from(rooms.keys()));
+
+    console.log("Room creada ID:", roomId);
   });
 
   socket.on("join-room", ({ roomId, playerId, playerName  }) => {
+    console.log("Datos recibidos:", { roomId, playerId, playerName  });
+
     const room = rooms.get(roomId);
     if (room) {
-      room.players[playerId] = { socketId: socket.id, name: playerName  };
+      room.players[playerId] = {
+        socketId: socket.id,
+        name: playerName
+      };
+      console.log(room.players)
       socket.join(roomId);
 
-      // Notificar a todos los de la sala quién entró
-      io.to(roomId).emit("player-joined", room.players);
-    }
+      // Notificar a todos
+      io.to(roomId).emit("update-players", room.players);
 
+      console.log(`Jugador ${playerName} unido. Jugadores actuales:`, Object.keys(room.players));
+    }
   });
 
   socket.on("set-ready", ({ roomId, playerId  }) => {
@@ -66,6 +74,16 @@ io.on("connection", (socket) => {
       socket.emit("reconnected", { status: "success", roomData: room  });
     } else {
       socket.emit("error", "No se pudo recuperar la sesión");
+    }
+  });
+
+  socket.on("get-room", (roomId) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      socket.emit("room-data", {
+        roomId: roomId,
+        players: room.players
+      });
     }
   });
 

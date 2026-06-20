@@ -1,28 +1,28 @@
-const express = require("express");
-const { createServer  } = require("http");
-const { Server  } = require("socket.io");
+import express from "express";
+import { createServer  } from "http";
+import { Server  } from "socket.io";
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // En producción, reemplaza con la URL de tu frontend
-    methods: ["GET", "POST"]
+        origin: "*",
+        methods: ["GET", "POST"]
   }
 
 });
 
+const rooms = new Map();
+
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
-});
-
-const rooms = new Map(); // Estructura: { roomId: { players: [], status: 'waiting'  }  }
-
-io.on("connection", (socket) => {
-
-  // Crear una sala
+  socket.on("ping-test", (msg) => {
+    console.log("¡MENSAJE RECIBIDO EN EL SERVER!:", msg);
+    socket.emit("pong-test", "Servidor recibido: " + msg);
+  });
   socket.on("create-room", (roomId) => {
+    console.log("Evento recibido: create-room con ID:", roomId);
     if (rooms.has(roomId)) {
       socket.emit("error", "La sala ya existe");
       return;
@@ -33,19 +33,32 @@ io.on("connection", (socket) => {
     io.emit("update-room-list", Array.from(rooms.keys()));
   });
 
-  // Unirse a una sala
-  socket.on("join-room", (roomId) => {
+  socket.on("join-room", ({ roomId, playerId, playerName  }) => {
     const room = rooms.get(roomId);
-    if (room && room.players.length < 4) { // Límite de 4 jugadores
-      room.players.push(socket.id);
+    if (room) {
+      room.players[playerId] = { socketId: socket.id, name: playerName  };
       socket.join(roomId);
-      socket.emit("room-joined", roomId);
+
+      // Notificar a todos los de la sala quién entró
+      io.to(roomId).emit("player-joined", room.players);
+    }
+
+  });
+  socket.on("reconnect-player", ({ roomId, playerId  }) => {
+    const room = rooms.get(roomId);
+
+    if (room && room.players[playerId]) {
+      console.log(`Jugador ${playerId} reconectado en sala ${roomId}`);
+      // Actualizamos el socketId del jugador para que el servidor 
+      // sepa que ahora debe enviarle los eventos a este nuevo socket
+      room.players[playerId].socketId = socket.id;
+      socket.join(roomId);
+      socket.emit("reconnected", { status: "success", roomData: room  });
     } else {
-      socket.emit("error", "Sala llena o no encontrada");
+      socket.emit("error", "No se pudo recuperar la sesión");
     }
   });
 
-  // Enviar lista al conectar
   socket.on("get-rooms", () => {
     socket.emit("update-room-list", Array.from(rooms.keys()));
   });

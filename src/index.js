@@ -6,8 +6,8 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+    origin: "*",
+    methods: ["GET", "POST"]
   }
 
 });
@@ -44,6 +44,16 @@ io.on("connection", (socket) => {
     }
 
   });
+
+  socket.on("set-ready", ({ roomId, playerId  }) => {
+    const room = rooms.get(roomId);
+    if (room && room.players[playerId]) {
+      room.players[playerId].ready = true;
+      // Emitir a todos en la sala la actualización de jugadores
+      io.to(roomId).emit("update-players", room.players);
+    }
+  });
+
   socket.on("reconnect-player", ({ roomId, playerId  }) => {
     const room = rooms.get(roomId);
 

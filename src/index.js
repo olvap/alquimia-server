@@ -17,6 +17,16 @@ const rooms = new Map();
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
+  // socket.on("disconnect", () => {
+  //   for (const [roomId, room] of rooms.entries()) {
+  //     if (room.hasPlayer(socket.id)) {
+  //       room.removePlayerBySocketId(socket.id);
+  //       io.to(roomId).emit("update-players", room.getPlayers());
+  //       break;
+  //     }
+  //   }
+  // });
+
   socket.on("ping-test", (msg) => {
     console.log("¡MENSAJE RECIBIDO EN EL SERVER!:", msg);
     socket.emit("pong-test", "Servidor recibido: " + msg);
@@ -61,6 +71,13 @@ io.on("connection", (socket) => {
       room.players[playerId].ready = true;
       // Emitir a todos en la sala la actualización de jugadores
       io.to(roomId).emit("update-players", room.players);
+
+      // Check de inicio
+      const allReady = Object.values(room.players).every(p => p.ready);
+      if (allReady && Object.keys(room.players).length > 1) {
+        console.log('todos los jugadores listos');
+        io.to(roomId).emit("start-game");
+      }
     }
   });
 

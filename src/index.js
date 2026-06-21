@@ -1,4 +1,5 @@
 import express from "express";
+import Room from './models/room.js';
 import { createServer  } from "http";
 import { Server  } from "socket.io";
 
@@ -20,8 +21,12 @@ io.on("connection", (socket) => {
     console.log("¡MENSAJE RECIBIDO EN EL SERVER!:", msg);
     socket.emit("pong-test", "Servidor recibido: " + msg);
   });
+
   socket.on("create-room", (roomId) => {
     console.log("Evento recibido: create-room con ID:", roomId);
+    const newRoom = new Room(roomId);
+    rooms.set(roomId, newRoom);
+
     if (rooms.has(roomId)) {
       socket.emit("error", "La sala ya existe");
       return;
@@ -39,10 +44,7 @@ io.on("connection", (socket) => {
 
     const room = rooms.get(roomId);
     if (room) {
-      room.players[playerId] = {
-        socketId: socket.id,
-        name: playerName
-      };
+      room.addPlayer(playerId, { socketId: socket.id, name: playerName  });
       console.log(room.players)
       socket.join(roomId);
 
